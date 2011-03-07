@@ -43,7 +43,8 @@ extern "C" {
         
       }
       __syncthreads();
-      scores[(blockIdx.x*blockDim.x + threadIdx.x) * BLOCK_SIZE + j] = (blockIdx.x*blockDim.x + threadIdx.x) * BLOCK_SIZE + j;//sqrt(_score);
+      //scores[(blockIdx.x*blockDim.x + threadIdx.x) * BLOCK_SIZE + j] = (blockIdx.x*blockDim.x + threadIdx.x) * BLOCK_SIZE + j;//sqrt(_score);
+      scores[(blockIdx.x*blockDim.x + threadIdx.x) * count + j] = sqrt(_score);
     }
   } 
 }

@@ -76,19 +76,19 @@ class WopataTest
     # CudaMemory.memcpy_dtoh(matrix, matrix_dev_1, type_size * matrix_size)
     
     # Display the Matrix
-    (0...count).each do |i|
-     (0...DIMENSIONS).each do |j|
-       $stderr.print "%.3f\t" % @matrix[i*DIMENSIONS + j]
-     end
-     $stderr.puts "\n"
-    end
-    
-    # (0...count).each do |i|
-    #  (0...DIMENSIONS).each do |j|
-    #    $stderr.print "%s\t" % matrix_keys[(i*DIMENSIONS + j)*256]
-    #  end
-    #  $stderr.puts "\n"
-    # end
+    ##(0...count).each do |i|
+    ## (0...DIMENSIONS).each do |j|
+    ##   $stderr.print "%.3f\t" % @matrix[i*DIMENSIONS + j]
+    ## end
+    ## $stderr.puts "\n"
+    ##end
+    ##
+    ##(0...count).each do |i|
+    ## (0...DIMENSIONS).each do |j|
+    ##   $stderr.print "%s\t" % @matrix_keys[i*DIMENSIONS + j]
+    ## end
+    ## $stderr.puts "\n"
+    ##end
     
     #object_ids.each_pair do |k, v|
     #  print "#{k} -> #{v}\n"
@@ -107,15 +107,16 @@ class WopataTest
         CudaMemory.memcpy_htod(@matrix_keys_dev_1, @matrix_keys.offset(c*offset_increment), offset_increment * integer_size)
         
         # We will not compare twice the same vectors => f(a,b) == f(b,a)
-        output_scores(CLUSTER_SIZE * BLOCK_SIZE, (c - 1) * CLUSTER_SIZE * BLOCK_SIZE, c * CLUSTER_SIZE * BLOCK_SIZE, 0, 0)
+        output_scores(CLUSTER_SIZE * BLOCK_SIZE, c * CLUSTER_SIZE * BLOCK_SIZE, c * CLUSTER_SIZE * BLOCK_SIZE, 0, 0) if c > 0
         (c...clusters_count).each do |cc|
           $stderr.puts ">> with Cluster ##{cc}"
           compare_with(c, cc, CLUSTER_SIZE, CLUSTER_SIZE)
         end
         # We have to handle the leftovers => if we have 66 blocks and CLUSTER_SIZE == 64, we have to handle 2 blocks separately
-        $stderr.puts ">> with the leftovers"
-        compare_with(c, clusters_count, CLUSTER_SIZE, leftovers_count)
-        
+        if leftovers_count > 0
+          $stderr.puts ">> with the leftovers"
+          compare_with(c, clusters_count, CLUSTER_SIZE, leftovers_count)
+        end
         
         #CudaMemory.memcpy_htod(matrix_dev_2, @matrix.offset(clusters_count * leftovers_count * BLOCK_SIZE * DIMENSIONS), leftovers_count * BLOCK_SIZE * DIMENSIONS * type_size)
         #CudaMemory.memcpy_htod(matrix_keys_dev_2, matrix_keys.offset(clusters_count * leftovers_count * BLOCK_SIZE * DIMENSIONS), leftovers_count * BLOCK_SIZE * DIMENSIONS * type_size)
@@ -127,17 +128,18 @@ class WopataTest
         #$stderr.puts "#{c * CLUSTER_SIZE * BLOCK_SIZE} .. #{c * CLUSTER_SIZE * BLOCK_SIZE + CLUSTER_SIZE * BLOCK_SIZE - 1} x #{clusters_count * CLUSTER_SIZE * BLOCK_SIZE} .. #{num_blocks * BLOCK_SIZE - 1}"
         #output_scores(CLUSTER_SIZE * BLOCK_SIZE, leftovers_count * BLOCK_SIZE, c, leftovers_count * BLOCK_SIZE, scores)
       end
-      $stderr.puts  "\n> The leftovers"
-      c = clusters_count
-      CudaMemory.memcpy_htod(@matrix_dev_1, @matrix.offset(c*offset_increment), leftovers_count * BLOCK_SIZE * DIMENSIONS)
-      CudaMemory.memcpy_htod(@matrix_keys_dev_1, @matrix_keys.offset(c*offset_increment), leftovers_count * BLOCK_SIZE * DIMENSIONS)
-      
-      # We will not compare twice the same vectors => f(a,b) == f(b,a)
-      output_scores(leftovers_count * BLOCK_SIZE, clusters_count * CLUSTER_SIZE * BLOCK_SIZE, clusters_count * CLUSTER_SIZE * BLOCK_SIZE, 0, 0)
-      
-      # We have to handle the leftovers => if we have 66 blocks and CLUSTER_SIZE == 64, we have to handle 2 blocks separately
-      $stderr.puts ">> with the leftovers"
-      compare_with(clusters_count, clusters_count, leftovers_count, leftovers_count)
+      if leftovers_count > 0
+        $stderr.puts  "\n> The leftovers"
+        c = clusters_count
+        CudaMemory.memcpy_htod(@matrix_dev_1, @matrix.offset(c*offset_increment), leftovers_count * BLOCK_SIZE * DIMENSIONS * @type_size)
+        CudaMemory.memcpy_htod(@matrix_keys_dev_1, @matrix_keys.offset(c*offset_increment), leftovers_count * BLOCK_SIZE * DIMENSIONS * integer_size)
+        
+        # We will not compare twice the same vectors => f(a,b) == f(b,a)
+        output_scores(leftovers_count * BLOCK_SIZE, clusters_count * CLUSTER_SIZE  * BLOCK_SIZE, clusters_count * CLUSTER_SIZE * BLOCK_SIZE, 0, 0)
+        # We have to handle the leftovers => if we have 66 blocks and CLUSTER_SIZE == 64, we have to handle 2 blocks separately
+        $stderr.puts ">> with the leftovers"
+        compare_with(clusters_count, clusters_count, leftovers_count, leftovers_count)
+      end
       #full_scores.keys.each do |i|
       #  full_scores[i].keys.each do |j|
       #    puts "#{i}\t #{j}\t %.3f\n" % full_scores[i][j]
@@ -194,34 +196,33 @@ protected
     $stderr.print ","
     $stderr.print score.is_a?(SGC::Memory::Buffer)
     $stderr.print "\n****\n\n"
-    (0... BLOCK_SIZE).each do |i|
-     (0... BLOCK_SIZE).each do |j|
-       $stderr.print "%.3f\t" % score[i*cols + j]
-     end
-     $stderr.puts "\n"
-    end
     (0...rows).each do |i|
       (0...cols).each do |j|
         real_i = offset_x + i
         real_j = offset_y + j
         #full_scores[real_i][real_j] = scores[i*CLUSTER_SIZE * BLOCK_SIZE + j]
+        #$stderr.print "%.3f\t" % score[i*cols + j]
         puts "#{real_i}\t #{real_j}\t %.3f\n" % (score.is_a?(SGC::Memory::Buffer) ? score[i * cols + j] : score)
       end
+      #$stderr.print "\n"
     end
+    #$stderr.print "\n"
   end
   
   def self.compare_with(cluster, offset, current_cluster_size, size)
-    CudaMemory.memcpy_htod(@matrix_dev_2, @matrix.offset(offset * CLUSTER_SIZE * BLOCK_SIZE * DIMENSIONS), size * BLOCK_SIZE * DIMENSIONS)
-    CudaMemory.memcpy_htod(@matrix_keys_dev_2, @matrix_keys.offset(offset * CLUSTER_SIZE * BLOCK_SIZE * DIMENSIONS), size * BLOCK_SIZE * DIMENSIONS)
+    #puts "compare_with" + [cluster, offset, current_cluster_size, size].join(', ')
+    
+    CudaMemory.memcpy_htod(@matrix_dev_2, @matrix.offset(offset * CLUSTER_SIZE * BLOCK_SIZE * DIMENSIONS), size * BLOCK_SIZE * DIMENSIONS * @type_size)
+    CudaMemory.memcpy_htod(@matrix_keys_dev_2, @matrix_keys.offset(offset * CLUSTER_SIZE * BLOCK_SIZE * DIMENSIONS), size * BLOCK_SIZE * DIMENSIONS * Buffer.element_size(:int))
     
     CudaFunction.configure(Dim3.new(size, 1, 1), Dim3.new(BLOCK_SIZE, 1, 1))
-    CudaFunction.setup(@matrix_dev_1, @matrix_dev_2, @matrix_keys_dev_1, @matrix_keys_dev_2, @scores_dev, size)
+    CudaFunction.setup(@matrix_dev_1, @matrix_dev_2, @matrix_keys_dev_1, @matrix_keys_dev_2, @scores_dev, size * BLOCK_SIZE)
     f = CudaFunction.new("ParallelScore")
     f.launch
     CudaMemory.memcpy_dtoh(@scores, @scores_dev, @scores_size * @type_size)
     
     $stderr.puts "#{cluster * CLUSTER_SIZE * BLOCK_SIZE} .. #{(cluster) * BLOCK_SIZE * CLUSTER_SIZE + current_cluster_size * BLOCK_SIZE - 1} x #{offset * CLUSTER_SIZE * BLOCK_SIZE} .. #{offset * CLUSTER_SIZE * BLOCK_SIZE + size * BLOCK_SIZE - 1}"
-    output_scores(size * BLOCK_SIZE, current_cluster_size * BLOCK_SIZE, cluster * CLUSTER_SIZE * BLOCK_SIZE, offset * CLUSTER_SIZE * BLOCK_SIZE, @scores)
+    output_scores(current_cluster_size * BLOCK_SIZE, size * BLOCK_SIZE, cluster * CLUSTER_SIZE * BLOCK_SIZE, offset * CLUSTER_SIZE * BLOCK_SIZE, @scores)
   end
 end
 
