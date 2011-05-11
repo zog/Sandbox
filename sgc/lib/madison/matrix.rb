@@ -40,6 +40,7 @@ module Madison
     
     attr_reader :vectors_dimension
     attr_reader :count
+    attr_reader :size
     attr_accessor :keys, :values
 
     def initialize type, vectors_count, vectors_dimension
@@ -53,13 +54,9 @@ module Madison
       
       # the matrix used to store the vector dimensions values
       @values = Buffer.new(type, @size)
-      #@values_dev_1 = CudaDeviceMemory.malloc(@type_size * size)
-      #@values_dev_2 = CudaDeviceMemory.malloc(@type_size * size)
       
       # the matrix used to store the vector dimensions keys
       @keys = Buffer.new(:int, @size)
-      #@matrix_keys_dev_1 = CudaDeviceMemory.malloc(integer_size * size)
-      #@matrix_keys_dev_2 = CudaDeviceMemory.malloc(integer_size * size)
     end
     
     def inspect
@@ -71,6 +68,7 @@ module Madison
     end
 
     def << vector
+      raise "Already full" unless @last_id <= @count
       (0...[vector.size, @vectors_dimension].min).each do |k| 
         dimensions(@last_id, k).value = vector.values[k]
         dimensions(@last_id, k).key = vector.keys[k].hash

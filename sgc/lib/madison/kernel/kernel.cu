@@ -6,13 +6,11 @@ extern "C" {
     int row = blockIdx.x;
     int col = threadIdx.x;
     A[row * DIMENSIONS + col] = (float)(row * DIMENSIONS + col)/(DIMENSIONS*count);
-    //A[row * DIMENSIONS + col] = (float)(row + col)/(BLOCK_SIZE);
   } 
   
   float score(float *A, float *B){
     float score = 0.0;
     for(int i=0; i<DIMENSIONS; i++){
-      //printf("%f * %f\n", A[i], B[i]);
       score += A[i] * B[i];
     }
     return score;
@@ -43,8 +41,8 @@ extern "C" {
         
       }
       __syncthreads();
-      scores[(blockIdx.x*blockDim.x + threadIdx.x) * count + j] = sqrt(_score) + 1;
-      //scores[(blockIdx.x*blockDim.x + threadIdx.x) * count + j] = &B[0];
+      scores[(blockIdx.x*blockDim.x + threadIdx.x) * count + j] = sqrt(_score);
+      //scores[(blockIdx.x*blockDim.x + threadIdx.x) * count + j] = DIMENSIONS+1;
     }
   } 
 }
